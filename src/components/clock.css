@@ -1,0 +1,74 @@
+.clock {
+    position: relative;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background-image: url('../assets/clockface.png');
+    background-size: cover;
+    background-position: center;
+    /* border: 2px solid rgb(245, 241, 241); */
+  }
+  
+  .hand {
+    position: absolute;
+    bottom: 50%;
+    left: 50%;
+    transform-origin: 50% 100%; /* Change this to center the origin at the bottom of the hand */
+    transition: transform 0.5s cubic-bezier(0.4, 2.3, 0.3, 1);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    opacity: 0.75;
+  }
+  
+  .hour-hand, .minute-hand, .second-hand {
+    transform: translateX(-50%, 50%) rotate(0deg); /* Add translateX(-50%) to center the hands */
+  }
+  
+  .hour-hand {
+    width: 1.5%;
+    height: 25%;
+    background: grey;
+  }
+  
+  .minute-hand {
+    width: 1.5%;
+    height: 35%;
+    background: grey;
+  }
+  
+  .second-hand {
+    width: 1%;
+    height: 35%;
+    background: #2a4a8e59;
+  }
+  
+  .center-dot {
+    width: 2.5%; /* Adjust size as a percentage of the clock's size for responsiveness */
+    height: 2.5%; /* Keep width and height same for a perfect circle */
+    background-color: grey;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+  }
+  
+
+.second-hand-toggle {
+  position: fixed;
+  top: 0;
+  right: 0;
+  padding: 10px;
+  color: gray;
+  opacity: 0.75;
+}
+
+.digital-clock {
+  font-family: 'Digital-7', monospace;
+  color: gray;
+  opacity: 0.75;
+  text-align: center;
+  font-size: 2em;
+  margin-bottom: 1em;
+}
