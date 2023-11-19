@@ -47,29 +47,28 @@ function Clock() {
       <DigitalClock />
       <div className="clock">
         <div
-          className="hand second-hand"
-          style={{
-            transform: `rotate(${secondsAngle}deg)`,
-            transition: transition ? "all 0.05s" : "none",
-          }}
-        />
-        <div
           className="hand minute-hand"
           style={{
             transform: `rotate(${minutesAngle}deg)`,
             transition: transition ? "all 0.1s" : "none",
           }}
         />
+        <div
+          className="hand hour-hand"
+          style={{
+            transform: `rotate(${hoursAngle}deg)`,
+            transition: transition ? "all 0.1s" : "none",
+          }}
+        />
         {showSecondHand && (
           <div
-            className="hand hour-hand"
+            className="hand second-hand"
             style={{
-              transform: `rotate(${hoursAngle}deg)`,
-              transition: transition ? "all 0.1s" : "none",
+              transform: `rotate(${secondsAngle}deg)`,
+              transition: transition ? "all 0.05s" : "none",
             }}
           />
         )}
-
         <div className="center-dot"></div>
       </div>
     </div>
