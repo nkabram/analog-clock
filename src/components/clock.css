@@ -21,18 +21,18 @@
   }
   
   .hour-hand, .minute-hand, .second-hand {
-    transform: translateX(-50%, 50%) rotate(0deg); /* Add translateX(-50%) to center the hands */
+    transform: translate(-50%, -100%) rotate(0deg); /* Add translateX(-50%) to center the hands */
   }
   
   .hour-hand {
     width: 1.5%;
-    height: 25%;
+    height: 35%;
     background: grey;
   }
   
   .minute-hand {
     width: 1.5%;
-    height: 35%;
+    height: 45%;
     background: grey;
   }
   
@@ -43,8 +43,8 @@
   }
   
   .center-dot {
-    width: 2.5%; /* Adjust size as a percentage of the clock's size for responsiveness */
-    height: 2.5%; /* Keep width and height same for a perfect circle */
+    width: 3%; /* Adjust size as a percentage of the clock's size for responsiveness */
+    height: 3%; /* Keep width and height same for a perfect circle */
     background-color: grey;
     border-radius: 50%;
     position: absolute;
