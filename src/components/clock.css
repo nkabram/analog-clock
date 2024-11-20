@@ -7,6 +7,7 @@
     background-size: cover;
     background-position: center;
     /* border: 2px solid rgb(245, 241, 241); */
+    cursor: pointer;
   }
   
   .hand {
@@ -71,4 +72,123 @@
   text-align: center;
   font-size: 2em;
   margin-bottom: 1em;
+}
+
+.clock-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.timer-controls button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid gray;
+  background: transparent;
+  color: gray;
+  cursor: pointer;
+}
+
+.timer-controls button:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.scratchpad {
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.scratchpad textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 1rem;
+  border: 1px solid gray;
+  border-radius: 4px;
+  background: transparent;
+  color: gray;
+  resize: vertical;
+}
+
+.timer-marker {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  transform-origin: 50% 50%;
+}
+
+.timer-marker::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  background: red;
+  border-radius: 50%;
+}
+
+.timer-display {
+  position: relative;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #333;
+  margin: 1rem 0;
+  font-family: monospace;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.timer-display:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.timer-button {
+  font-size: 1rem;
+  height: fit-content;
+  margin-left: 0.5rem;
+}
+
+.timer-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.timer-input {
+  width: 3ch;
+  font-size: 2.5rem;
+  font-weight: bold;
+  font-family: monospace;
+  border: none;
+  padding: 0.2rem;
+  text-align: center;
+  background: transparent;
+  color: inherit;
+}
+
+.timer-input:focus {
+  outline: none;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Remove spinner buttons from number inputs */
+.timer-input::-webkit-inner-spin-button,
+.timer-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.timer-input[type=number] {
+  -moz-appearance: textfield;
 }
