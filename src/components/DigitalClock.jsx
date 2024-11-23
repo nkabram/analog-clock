@@ -1,40 +1,28 @@
 import { useState, useEffect } from "react";
 
-function DigitalClock() {
-  const [date, setDate] = useState(new Date().getDate());
-  const [month, setMonth] = useState(new Date().getMonth() + 1); // Months are 0-based in JavaScript
-  const [hours, setHours] = useState(new Date().getHours());
-  const [minutes, setMinutes] = useState(new Date().getMinutes());
-  const [ampm, setAmPm] = useState(new Date().getHours() < 12 ? "AM" : "PM");
+function DigitalClock({ militaryTime }) {
+  const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      setDate(now.getDate());
-      setMonth(now.getMonth() + 1);
-      setHours(now.getHours());
-      setMinutes(now.getMinutes());
-    }, 1000);
+    const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      // ...
-      setHours(now.getHours() % 12 || 12); // Convert to 12-hour format
-      setAmPm(now.getHours() < 12 ? "AM" : "PM");
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const formatTime = () => {
+    let hours = time.getHours();
+    const minutes = time.getMinutes();
+    const seconds = time.getSeconds();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
 
-  return (
-    <div className="digital-clock">
-      {month}/{date.toString().padStart(2, "0")}{" "}
-      {hours.toString().padStart(2, "0")}:{minutes.toString().padStart(2, "0")}{" "}
-      {ampm}
-    </div>
-  );
+    if (!militaryTime) {
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}${!militaryTime ? ' ' + ampm : ''}`;
+  };
+
+  return <div className="digital-clock">{formatTime()}</div>;
 }
 
 export default DigitalClock;

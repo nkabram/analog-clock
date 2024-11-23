@@ -22,6 +22,7 @@ function Clock() {
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
   const audioSourceRef = useRef(null);
   const alarmTimeoutRef = useRef(null);
+  const [militaryTime, setMilitaryTime] = useState(false);
 
   const toggleSecondHand = () => {
     setShowSecondHand(!showSecondHand);
@@ -137,14 +138,18 @@ function Clock() {
     setTimerSeconds(0);
     
     await playAlarmSound();
-
-    if (Notification.permission === "granted") {
-      new Notification("Timer Complete!", {
-        body: "Your timer has finished!",
-        requireInteraction: true
-      });
-    }
   };
+
+  useEffect(() => {
+    const handlePageClick = () => {
+      if (isAlarmPlaying) {
+        resetTimer();
+      }
+    };
+
+    document.addEventListener('click', handlePageClick);
+    return () => document.removeEventListener('click', handlePageClick);
+  }, [isAlarmPlaying]);
 
   const playAlarmSound = async () => {
     try {
@@ -227,6 +232,8 @@ function Clock() {
   const hoursAngle = (hours / 12) * 360 + minutesAngle / 12;
 
   const handleClockClick = (event) => {
+    if (timerActive || isAlarmPlaying) return;
+
     if (clockRef.current) {
       const rect = clockRef.current.getBoundingClientRect();
       const centerX = rect.width / 2;
@@ -251,8 +258,13 @@ function Clock() {
 
   const handleTimerClick = (e) => {
     e.stopPropagation();
-    setIsEditingTimer(true);
-    if (!timerSeconds) setTimerSeconds(0);
+    if (!timerActive && !isAlarmPlaying) {
+      setIsEditingTimer(true);
+      setTimeout(() => {
+        const minutesInput = document.querySelector('.timer-input');
+        if (minutesInput) minutesInput.focus();
+      }, 0);
+    }
   };
 
   const handleTimerChange = (type, value) => {
@@ -301,17 +313,29 @@ function Clock() {
   return (
     <div className="clock-container">
       <div className="controls">
-        <label className="second-hand-toggle">
-          Second Hand
-          <input
-            type="checkbox"
-            checked={showSecondHand}
-            onChange={toggleSecondHand}
-          />
-        </label>
+        <div className="toggle-container">
+          <label className="second-hand-toggle">
+            Show Second Hand
+            <input
+              type="checkbox"
+              checked={showSecondHand}
+              onChange={toggleSecondHand}
+            />
+          </label>
+        </div>
+        <div className="toggle-container">
+          <label className="military-time-toggle">
+            24-Hour Time
+            <input
+              type="checkbox"
+              checked={militaryTime}
+              onChange={() => setMilitaryTime(!militaryTime)}
+            />
+          </label>
+        </div>
       </div>
       
-      <DigitalClock />
+      <DigitalClock militaryTime={militaryTime} />
       
       <div 
         className="clock" 
@@ -352,38 +376,10 @@ function Clock() {
         <div className="center-dot"></div>
       </div>
 
-      <div className="timer-controls">
-        {isAlarmPlaying ? (
-          <button 
-            className="timer-button stop"
-            onClick={resetTimer}
-          >
-            Stop Alarm
-          </button>
-        ) : (
-          <>
-            <button 
-              className={`timer-button ${timerActive ? (timerPaused ? 'paused' : 'active') : ''}`}
-              onClick={startPauseTimer}
-            >
-              {timerActive
-                ? (timerPaused ? "Resume" : "Pause")
-                : "Start Timer"
-              }
-            </button>
-            {(timerActive || timerPaused || timerMinutes > 0 || timerSeconds > 0) && (
-              <button 
-                className="timer-button stop"
-                onClick={stopTimer}
-              >
-                Stop Timer
-              </button>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="timer-display" onClick={(e) => e.stopPropagation()}>
+      <div 
+        className={`timer-display ${isAlarmPlaying ? 'timer-complete' : ''} ${timerActive ? 'timer-active' : ''}`} 
+        onClick={handleTimerClick}
+      >
         {isEditingTimer ? (
           <form onSubmit={handleTimerSubmit} className="timer-edit-form">
             <input
@@ -414,14 +410,36 @@ function Clock() {
         )}
       </div>
 
-      {showTimerModal && (
-        <div className="timer-modal-overlay">
-          <div className="timer-modal">
-            <h2>Timer Complete!</h2>
-            <button onClick={handleModalClose}>Stop Timer</button>
-          </div>
-        </div>
-      )}
+      <div className="timer-controls">
+        {isAlarmPlaying ? (
+          <button 
+            className="timer-button stop"
+            onClick={resetTimer}
+          >
+            Stop Alarm
+          </button>
+        ) : (
+          <>
+            <button 
+              className={`timer-button ${timerActive ? (timerPaused ? 'paused' : 'active') : ''}`}
+              onClick={startPauseTimer}
+            >
+              {timerActive
+                ? (timerPaused ? "Resume" : "Pause")
+                : "Start Timer"
+              }
+            </button>
+            {(timerActive || timerPaused || timerMinutes > 0 || timerSeconds > 0) && (
+              <button 
+                className="timer-button stop"
+                onClick={stopTimer}
+              >
+                Cancel Timer
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
       <Scratchpad />
     </div>
