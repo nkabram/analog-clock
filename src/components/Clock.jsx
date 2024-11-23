@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import DigitalClock from "./DigitalClock";
 import Scratchpad from "./Scratchpad";
 import "./clock.css";
-import alarmSound from '../assets/alarm.mp3';
 
 function Clock() {
   const [date, setDate] = useState(new Date());
@@ -14,12 +13,15 @@ function Clock() {
   const [timerPaused, setTimerPaused] = useState(false);
   const [timerHashAngle, setTimerHashAngle] = useState(0);
   const clockRef = useRef(null);
-  const timerIntervalRef = useRef(null);
+  const timerEndTimeRef = useRef(null);
   const [timerSetTime, setTimerSetTime] = useState(null);
-  const [audioLoaded, setAudioLoaded] = useState(false);
-  const audioRef = useRef(null);
   const [isEditingTimer, setIsEditingTimer] = useState(false);
   const [isTimerComplete, setIsTimerComplete] = useState(false);
+  const audioRef = useRef(null);
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
+  const audioSourceRef = useRef(null);
+  const alarmTimeoutRef = useRef(null);
 
   const toggleSecondHand = () => {
     setShowSecondHand(!showSecondHand);
@@ -39,64 +41,138 @@ function Clock() {
   }, []);
 
   useEffect(() => {
-    try {
-      audioRef.current = new Audio('/assets/alarm.mp3');
-      
-      audioRef.current.addEventListener('loadeddata', () => {
-        console.log('Audio loaded successfully');
-      });
-
-      audioRef.current.addEventListener('error', (e) => {
-        console.error('Audio loading error:', e.target.error);
-      });
-
-      audioRef.current.load();
-    } catch (error) {
-      console.error('Audio initialization error:', error);
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+    const setupAudio = async () => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext();
+        
+        const response = await fetch('/assets/alarm.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        audioRef.current = {
+          context: audioContext,
+          buffer: audioBuffer,
+          gainNode: audioContext.createGain()
+        };
+        
+        audioRef.current.gainNode.connect(audioContext.destination);
+      } catch (error) {
+        console.error('Audio initialization error:', error);
       }
     };
+
+    setupAudio();
+    
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
   }, []);
 
   useEffect(() => {
-    let interval;
-    if (timerActive && !timerPaused) {
-      interval = setInterval(() => {
-        setTimerSeconds(prevSeconds => {
-          if (prevSeconds === 0) {
-            setTimerMinutes(prevMinutes => {
-              if (prevMinutes === 0) {
-                clearInterval(interval);
-                playAlarmSound();
-                setTimerActive(false);
-                return 0;
-              }
-              return prevMinutes - 1;
+    if (!timerActive || timerPaused || !timerEndTimeRef.current) return;
+
+    const workerCode = `
+      let intervalId = null;
+      
+      self.onmessage = function(e) {
+        if (e.data.type === 'start') {
+          if (intervalId) clearInterval(intervalId);
+          const endTime = e.data.endTime;
+          
+          intervalId = setInterval(() => {
+            const now = Date.now();
+            const remaining = Math.max(0, endTime - now);
+            
+            self.postMessage({ 
+              type: 'tick',
+              remaining: remaining
             });
-            return 59;
-          }
-          return prevSeconds - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
+            
+            if (now >= endTime) {
+              self.postMessage({ type: 'complete' });
+              clearInterval(intervalId);
+            }
+          }, 100);
+        } else if (e.data.type === 'stop') {
+          if (intervalId) clearInterval(intervalId);
+        }
+      };
+    `;
+
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
+
+    worker.postMessage({
+      type: 'start',
+      endTime: timerEndTimeRef.current
+    });
+
+    worker.onmessage = (e) => {
+      if (e.data.type === 'complete') {
+        handleTimerComplete();
+      } else if (e.data.type === 'tick') {
+        const remaining = e.data.remaining;
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        
+        setTimerMinutes(minutes);
+        setTimerSeconds(seconds);
+      }
+    };
+
+    return () => {
+      worker.postMessage({ type: 'stop' });
+      worker.terminate();
+    };
   }, [timerActive, timerPaused]);
+
+  const handleTimerComplete = async () => {
+    if (isAlarmPlaying) return;
+    
+    setIsAlarmPlaying(true);
+    setTimerActive(false);
+    timerEndTimeRef.current = null;
+    setTimerMinutes(0);
+    setTimerSeconds(0);
+    
+    await playAlarmSound();
+
+    if (Notification.permission === "granted") {
+      new Notification("Timer Complete!", {
+        body: "Your timer has finished!",
+        requireInteraction: true
+      });
+    }
+  };
 
   const playAlarmSound = async () => {
     try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio('/assets/alarm.mp3');
+      if (!audioRef.current || isAlarmPlaying) return;
+
+      const { context, buffer, gainNode } = audioRef.current;
+      
+      if (context.state === 'suspended') {
+        await context.resume();
       }
 
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
+      if (audioSourceRef.current) {
+        try {
+          audioSourceRef.current.stop();
+        } catch (e) {
+          // Ignore if already stopped
+        }
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gainNode);
+      source.loop = true;
+      source.start(0);
       
-      if (window.confirm('Timer Complete!')) {
+      audioSourceRef.current = source;
+
+      if (window.confirm('Timer Complete! Click OK to stop the alarm.')) {
         resetTimer();
       }
     } catch (error) {
@@ -109,8 +185,14 @@ function Clock() {
 
   const startTimer = () => {
     if (timerMinutes > 0 || timerSeconds > 0) {
+      const totalMilliseconds = (timerMinutes * 60 + timerSeconds) * 1000;
+      timerEndTimeRef.current = Date.now() + totalMilliseconds;
       setTimerActive(true);
       setTimerPaused(false);
+
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
     }
   };
 
@@ -183,16 +265,37 @@ function Clock() {
   };
 
   const resetTimer = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+    if (audioSourceRef.current) {
+      try {
+        audioSourceRef.current.stop();
+        audioSourceRef.current = null;
+      } catch (e) {
+        console.error('Error stopping audio:', e);
+      }
     }
+
+    if (audioRef.current?.context) {
+      audioRef.current.context.suspend();
+    }
+
+    if (alarmTimeoutRef.current) {
+      clearTimeout(alarmTimeoutRef.current);
+      alarmTimeoutRef.current = null;
+    }
+
     setTimerActive(false);
     setTimerPaused(false);
     setTimerMinutes(0);
     setTimerSeconds(0);
     setTimerHashAngle(0);
     setIsEditingTimer(false);
+    setIsAlarmPlaying(false);
+    timerEndTimeRef.current = null;
+  };
+
+  const handleModalClose = () => {
+    setShowTimerModal(false);
+    resetTimer();
   };
 
   return (
@@ -250,61 +353,73 @@ function Clock() {
       </div>
 
       <div className="timer-controls">
-        <button 
-          className={`timer-button ${timerActive ? (timerPaused ? 'paused' : 'active') : ''}`}
-          onClick={startPauseTimer}
-        >
-          {timerActive
-            ? (timerPaused ? "Resume" : "Pause")
-            : "Start Timer"
-          }
-        </button>
-        {(timerActive || timerPaused || timerMinutes > 0 || timerSeconds > 0) && (
+        {isAlarmPlaying ? (
           <button 
             className="timer-button stop"
-            onClick={stopTimer}
+            onClick={resetTimer}
           >
-            Stop Timer
+            Stop Alarm
           </button>
+        ) : (
+          <>
+            <button 
+              className={`timer-button ${timerActive ? (timerPaused ? 'paused' : 'active') : ''}`}
+              onClick={startPauseTimer}
+            >
+              {timerActive
+                ? (timerPaused ? "Resume" : "Pause")
+                : "Start Timer"
+              }
+            </button>
+            {(timerActive || timerPaused || timerMinutes > 0 || timerSeconds > 0) && (
+              <button 
+                className="timer-button stop"
+                onClick={stopTimer}
+              >
+                Stop Timer
+              </button>
+            )}
+          </>
         )}
       </div>
 
-      {(timerMinutes > 0 || timerSeconds > 0 || isEditingTimer) && (
-        <div 
-          className="timer-display"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {isEditingTimer ? (
-            <form 
-              onSubmit={handleTimerSubmit} 
-              className="timer-edit-form"
-            >
-              <input
-                type="number"
-                min="0"
-                max="59"
-                value={timerMinutes}
-                onChange={(e) => handleTimerChange('minutes', e.target.value)}
-                className="timer-input"
-                onClick={(e) => e.stopPropagation()}
-              />
-              <span>:</span>
-              <input
-                type="number"
-                min="0"
-                max="59"
-                value={timerSeconds.toString().padStart(2, '0')}
-                onChange={(e) => handleTimerChange('seconds', e.target.value)}
-                className="timer-input"
-                onClick={(e) => e.stopPropagation()}
-              />
-              <button type="submit" style={{ display: 'none' }} />
-            </form>
-          ) : (
-            <span onClick={handleTimerClick}>
-              {String(timerMinutes).padStart(2, '0')}:{String(timerSeconds).padStart(2, '0')}
-            </span>
-          )}
+      <div className="timer-display" onClick={(e) => e.stopPropagation()}>
+        {isEditingTimer ? (
+          <form onSubmit={handleTimerSubmit} className="timer-edit-form">
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={timerMinutes}
+              onChange={(e) => handleTimerChange('minutes', e.target.value)}
+              className="timer-input"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span>:</span>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={timerSeconds.toString().padStart(2, '0')}
+              onChange={(e) => handleTimerChange('seconds', e.target.value)}
+              className="timer-input"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button type="submit" style={{ display: 'none' }} />
+          </form>
+        ) : (
+          <span onClick={handleTimerClick}>
+            {String(timerMinutes).padStart(2, '0')}:{String(timerSeconds).padStart(2, '0')}
+          </span>
+        )}
+      </div>
+
+      {showTimerModal && (
+        <div className="timer-modal-overlay">
+          <div className="timer-modal">
+            <h2>Timer Complete!</h2>
+            <button onClick={handleModalClose}>Stop Timer</button>
+          </div>
         </div>
       )}
 
